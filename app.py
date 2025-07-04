@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import datetime
 import json
@@ -11,15 +10,12 @@ from PIL import Image
 from io import BytesIO
 import google.generativeai as genai
 
-# 🔧 Ajout du chemin ffmpeg pour Windows
-os.environ["PATH"] += os.pathsep + r"F:\logiciel\ffmpeg-7.1.1-essentials_build\ffmpeg-7.1.1-essentials_build\bin"
-
 # Configuration de la page
 st.set_page_config(page_title="Synthétiseur de Rêves", layout="centered")
 st.title("🌙 Synthétiseur de Rêves")
 st.markdown("Bienvenue ! Racontez-nous votre rêve...")
 
-# Chargement des rêves enregistrés avec vérification du contenu
+# Chargement des rêves enregistrés
 def load_dreams():
     file = Path("dreams.json")
     if file.exists():
@@ -27,10 +23,9 @@ def load_dreams():
             with open(file, "r") as f:
                 content = f.read().strip()
                 if not content:
-                    return []  # Fichier vide
+                    return []
                 return json.loads(content)
         except json.JSONDecodeError:
-            # En cas d'erreur lors du décodage du JSON, on renvoie une liste vide
             return []
     return []
 
@@ -42,21 +37,21 @@ def save_dream(dream):
         json.dump(dreams, f, indent=2)
 
 # Upload d’un fichier audio
-uploaded_file = st.file_uploader("📤 Uploader un fichier audio (.mp3, .wav)", type=["mp3", "wav"])
+uploaded_file = st.file_uploader("📤 Uploader un fichier audio (.wav uniquement)", type=["wav"])
 
 if uploaded_file is not None:
     st.audio(uploaded_file)
     st.success("Audio uploadé avec succès !")
 
     # Sauvegarde temporaire du fichier
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
         tmp_file.write(uploaded_file.read())
         tmp_file_path = tmp_file.name
 
-    # Transcription locale avec Whisper
+    # Transcription locale avec Whisper (sans ffmpeg car .wav = direct)
     st.info("⏳ Transcription en cours avec Whisper...")
     try:
-        model = whisper.load_model("base")  # Tu peux aussi essayer "small", "medium", "large"
+        model = whisper.load_model("base")
         result = model.transcribe(tmp_file_path)
         transcribed_text = result["text"]
         st.text_area("📝 Texte du rêve :", transcribed_text, height=150)
@@ -69,13 +64,13 @@ if uploaded_file is not None:
     genai.configure(api_key=st.secrets["gemini_api_key"])
 
     emotion_prompt = f"""
-Tu es un détecteur d’émotion. Lis ce rêve et réponds uniquement par une émotion dominante : heureux, triste, stressant, angoissé, émerveillé, neutre, etc.
+    Tu es un détecteur d’émotion. Lis ce rêve et réponds uniquement par une émotion dominante : heureux, triste, stressant, angoissé, émerveillé, neutre, etc.
 
-Rêve :
-\"\"\"{transcribed_text}\"\"\"
+    Rêve :
+    \"\"\"{transcribed_text}\"\"\"
 
-Réponds uniquement par l'émotion. Pas d'explication.
-"""
+    Réponds uniquement par l'émotion. Pas d'explication.
+    """
     model_gemini = genai.GenerativeModel("gemini-1.5-flash")
     response = model_gemini.generate_content(emotion_prompt)
     emotion = response.text.strip()
@@ -106,7 +101,7 @@ Réponds uniquement par l'émotion. Pas d'explication.
             "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
             "text": transcribed_text,
             "emotion": emotion,
-            "image_url": ""  # à compléter ultérieurement si nécessaire
+            "image_url": ""
         }
         save_dream(dream_data)
     else:
